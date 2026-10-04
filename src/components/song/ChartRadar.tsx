@@ -12,6 +12,21 @@ interface ChartRadarProps {
   chartLevel: number | undefined;
 }
 
+// 100 reaches the reference hexagon. Labels leave room for roughly 220;
+// higher scores still extend linearly instead of changing the scale.
+const RADAR_CENTER_X = 160;
+const RADAR_CENTER_Y = 180;
+const REFERENCE_RADIUS = 64;
+const REFERENCE_SCORE = 100;
+const LABEL_POSITIONS = [
+  { x: 160, y: 20, anchor: 'middle' },
+  { x: 316, y: 76, anchor: 'end' },
+  { x: 316, y: 286, anchor: 'end' },
+  { x: 160, y: 340, anchor: 'middle' },
+  { x: 4, y: 286, anchor: 'start' },
+  { x: 4, y: 76, anchor: 'start' },
+] as const;
+
 function RadarPlot({ data }: { data: ChartRadarResponse }) {
   const titleId = useId();
   const reduceMotion = useReducedMotion();
@@ -22,20 +37,19 @@ function RadarPlot({ data }: { data: ChartRadarResponse }) {
   const color = radarAxes[strongest];
   const points = values.map((value, i) => {
     const angle = (-90 + i * 60) * Math.PI / 180;
-    const radius = Math.max(0, Math.min(250, value ?? 0)) / 250 * 105;
-    return `${160 + Math.cos(angle) * radius},${160 + Math.sin(angle) * radius}`;
+    const radius = Math.max(0, value ?? 0) / REFERENCE_SCORE * REFERENCE_RADIUS;
+    return `${RADAR_CENTER_X + Math.cos(angle) * radius},${RADAR_CENTER_Y + Math.sin(angle) * radius}`;
   }).join(' ');
   const esti = data.feature.fitted_constant;
 
   return (
-    <svg viewBox="0 0 320 320" className="block w-full text-white/90" role="img" aria-labelledby={titleId}>
+    <svg viewBox="0 0 320 360" className="block w-full text-white/90" role="img" aria-labelledby={titleId}>
       <title id={titleId}>
         {radarAxes.map((axis, i) => `${axis.label}: ${values[i] ?? '—'}`).join(', ')}; esti: {esti?.toFixed(2) ?? '—'}
       </title>
-      <image href={radarBackground} x="55" y="55" width="210" height="210" className="invert opacity-45" />
       {complete && (
         <motion.polygon
-          initial={reduceMotion ? false : { points: Array(6).fill('160,160').join(' ') }}
+          initial={reduceMotion ? false : { points: Array(6).fill(`${RADAR_CENTER_X},${RADAR_CENTER_Y}`).join(' ') }}
           animate={{ points, fill: color.fill, stroke: color.stroke }}
           transition={{ duration: reduceMotion ? 0 : 0.5, ease: [0.215, 0.61, 0.355, 1] }}
           fillOpacity={0.7843}
@@ -43,21 +57,27 @@ function RadarPlot({ data }: { data: ChartRadarResponse }) {
           strokeLinejoin="round"
         />
       )}
+      <image
+        href={radarBackground}
+        x={RADAR_CENTER_X - REFERENCE_RADIUS}
+        y={RADAR_CENTER_Y - REFERENCE_RADIUS}
+        width={REFERENCE_RADIUS * 2}
+        height={REFERENCE_RADIUS * 2}
+        className="invert opacity-65"
+      />
       {radarAxes.map((axis, i) => {
-        const angle = (-90 + i * 60) * Math.PI / 180;
-        const x = 160 + Math.cos(angle) * 137;
-        const y = 160 + Math.sin(angle) * 137;
+        const { x, y, anchor } = LABEL_POSITIONS[i];
         return (
-          <g key={axis.key} textAnchor="middle" fill="currentColor">
+          <g key={axis.key} textAnchor={anchor} fill="currentColor">
             <text x={x} y={y - 2} fontSize="15" fontWeight="600">{axis.label}</text>
-            <text x={x} y={y + 16} fontSize="14" className="tabular-nums">{values[i]?.toFixed(0) ?? '—'}</text>
+            <text x={x} y={y + 14} fontSize="14" className="tabular-nums">{values[i]?.toFixed(0) ?? '—'}</text>
           </g>
         );
       })}
-      <text x="160" y="164" textAnchor="middle" fontSize="26" fontWeight="600" fill="currentColor" stroke="rgb(0 0 0 / 35%)" strokeWidth="3" paintOrder="stroke" className="tabular-nums">
+      <text x={RADAR_CENTER_X} y={RADAR_CENTER_Y + 4} textAnchor="middle" fontSize="26" fontWeight="600" fill="currentColor" stroke="rgb(0 0 0 / 35%)" strokeWidth="3" paintOrder="stroke" className="tabular-nums">
         {esti?.toFixed(2) ?? '—'}
       </text>
-      <text x="160" y="184" textAnchor="middle" fontSize="13" fill="currentColor">esti</text>
+      <text x={RADAR_CENTER_X} y={RADAR_CENTER_Y + 24} textAnchor="middle" fontSize="13" fill="currentColor">esti</text>
     </svg>
   );
 }
