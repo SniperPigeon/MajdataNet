@@ -159,7 +159,7 @@ describe('radar on the song page', () => {
     expect(container.querySelector('svg')?.textContent).toContain('13.75');
   });
 
-  it('places 100 on the reference hexagon and keeps higher scores outside it', async () => {
+  it('places 100 on the reference hexagon and caps drawing at 200 without capping labels', async () => {
     const scores = [50, 100, 150, 200, 250, 0];
     fetchMock.mockResolvedValue(response({
       featureOrder,
@@ -171,19 +171,21 @@ describe('radar on the song page', () => {
     const centerX = Number(image.getAttribute('x')) + referenceRadius;
     const centerY = Number(image.getAttribute('y')) + referenceRadius;
     const points = container.querySelector('svg polygon')!.getAttribute('points')!.split(' ').map(pair => pair.split(',').map(Number));
-    for (const [i, expectedRadius] of [0.5, 1, 1.5, 2, 2.5, 0].entries()) {
+    for (const [i, expectedRadius] of [0.5, 1, 1.5, 2, 2, 0].entries()) {
       const [x, y] = points[i];
       expect(Math.hypot(x - centerX, y - centerY) / referenceRadius).toBeCloseTo(expectedRadius);
     }
-    expect(container.querySelector('svg')?.textContent).toContain('esti: 14.20');
+    expect(container.querySelector('svg')?.getAttribute('aria-label')).toContain('esti: 14.20');
+    expect(container.querySelector('svg')?.textContent).toContain('250');
+    expect(container.querySelector('svg')?.getAttribute('aria-label')).toContain('Slide: 250');
   });
 
   it('shows missing values as unavailable instead of drawing a zero-score polygon', async () => {
     fetchMock.mockResolvedValue(response({ ...radar(), feature: { ...radar().feature, note: null, fitted_constant: null } }));
     await render(<ChartRadar id="song" hash="hash" chartLevel={4} />);
     expect(container.querySelector('svg polygon')).toBeNull();
-    expect(container.querySelector('svg')?.textContent).toContain('Note: —');
-    expect(container.querySelector('svg')?.textContent).toContain('esti: —');
+    expect(container.querySelector('svg')?.getAttribute('aria-label')).toContain('Note: —');
+    expect(container.querySelector('svg')?.getAttribute('aria-label')).toContain('esti: —');
   });
 
   it('rejects malformed JSON payloads without drawing NaN values', async () => {
