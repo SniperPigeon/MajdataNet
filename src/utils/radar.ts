@@ -6,7 +6,7 @@ export const radarAxes: { key: RadarAxis; label: string; fill: string; stroke: s
   { key: 'peak', label: 'Peak', fill: '#dd8377', stroke: '#c73320' },
   { key: 'sweep', label: 'Swipe', fill: '#ea98bb', stroke: '#dc5690' },
   { key: 'slide_tricky', label: 'Umiyuri', fill: '#b2cfe0', stroke: '#005f97' },
-  { key: 'slide_sequence', label: 'SlideCombo', fill: '#7bc4c5', stroke: '#008d8f' },
+  { key: 'slide_sequence', label: 'Slide', fill: '#7bc4c5', stroke: '#008d8f' },
   { key: 'jack', label: 'Jack', fill: '#a484d7', stroke: '#9772d1' },
 ];
 
