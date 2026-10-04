@@ -159,6 +159,25 @@ describe('radar on the song page', () => {
     expect(container.querySelector('svg')?.textContent).toContain('13.75');
   });
 
+  it('places 100 on the reference hexagon and keeps higher scores outside it', async () => {
+    const scores = [50, 100, 150, 200, 250, 0];
+    fetchMock.mockResolvedValue(response({
+      featureOrder,
+      feature: { ...Object.fromEntries(featureOrder.slice(0, 6).map((key, i) => [key, scores[i]])), fitted_constant: 14.2 },
+    }));
+    await render(<ChartRadar id="song" hash="hash" chartLevel={4} />);
+    const image = container.querySelector('svg image')!;
+    const referenceRadius = Number(image.getAttribute('width')) / 2;
+    const centerX = Number(image.getAttribute('x')) + referenceRadius;
+    const centerY = Number(image.getAttribute('y')) + referenceRadius;
+    const points = container.querySelector('svg polygon')!.getAttribute('points')!.split(' ').map(pair => pair.split(',').map(Number));
+    for (const [i, expectedRadius] of [0.5, 1, 1.5, 2, 2.5, 0].entries()) {
+      const [x, y] = points[i];
+      expect(Math.hypot(x - centerX, y - centerY) / referenceRadius).toBeCloseTo(expectedRadius);
+    }
+    expect(container.querySelector('svg')?.textContent).toContain('esti: 14.20');
+  });
+
   it('shows missing values as unavailable instead of drawing a zero-score polygon', async () => {
     fetchMock.mockResolvedValue(response({ ...radar(), feature: { ...radar().feature, note: null, fitted_constant: null } }));
     await render(<ChartRadar id="song" hash="hash" chartLevel={4} />);
