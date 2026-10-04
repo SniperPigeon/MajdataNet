@@ -12,23 +12,15 @@ interface ChartRadarProps {
   chartLevel: number | undefined;
 }
 
-// 100 reaches the reference hexagon. Labels leave room for roughly 220;
-// higher scores still extend linearly instead of changing the scale.
+// 100 reaches the reference hexagon; drawing stops at 200, while labels
+// and dominant-axis colors continue to use the original scores.
 const RADAR_CENTER_X = 160;
 const RADAR_CENTER_Y = 180;
-const REFERENCE_RADIUS = 64;
+const REFERENCE_RADIUS = 90;
 const REFERENCE_SCORE = 100;
-const LABEL_POSITIONS = [
-  { x: 160, y: 20, anchor: 'middle' },
-  { x: 316, y: 76, anchor: 'end' },
-  { x: 316, y: 286, anchor: 'end' },
-  { x: 160, y: 340, anchor: 'middle' },
-  { x: 4, y: 286, anchor: 'start' },
-  { x: 4, y: 76, anchor: 'start' },
-] as const;
+const MAX_RENDERED_SCORE = 200;
 
 function RadarPlot({ data }: { data: ChartRadarResponse }) {
-  const titleId = useId();
   const reduceMotion = useReducedMotion();
   // Access by key: JSON dictionary iteration order is not the visual axis order.
   const values = radarAxes.map(axis => data.feature[axis.key]);
@@ -37,16 +29,18 @@ function RadarPlot({ data }: { data: ChartRadarResponse }) {
   const color = radarAxes[strongest];
   const points = values.map((value, i) => {
     const angle = (-90 + i * 60) * Math.PI / 180;
-    const radius = Math.max(0, value ?? 0) / REFERENCE_SCORE * REFERENCE_RADIUS;
+    const radius = Math.max(0, Math.min(MAX_RENDERED_SCORE, value ?? 0)) / REFERENCE_SCORE * REFERENCE_RADIUS;
     return `${RADAR_CENTER_X + Math.cos(angle) * radius},${RADAR_CENTER_Y + Math.sin(angle) * radius}`;
   }).join(' ');
   const esti = data.feature.fitted_constant;
 
   return (
-    <svg viewBox="0 0 320 360" className="block w-full text-white/90" role="img" aria-labelledby={titleId}>
-      <title id={titleId}>
-        {radarAxes.map((axis, i) => `${axis.label}: ${values[i] ?? '—'}`).join(', ')}; esti: {esti?.toFixed(2) ?? '—'}
-      </title>
+    <svg
+      viewBox="0 0 320 360"
+      className="block w-full overflow-visible text-white/90"
+      role="img"
+      aria-label={`${radarAxes.map((axis, i) => `${axis.label}: ${values[i] ?? '—'}`).join(', ')}; esti: ${esti?.toFixed(2) ?? '—'}`}
+    >
       {complete && (
         <motion.polygon
           initial={reduceMotion ? false : { points: Array(6).fill(`${RADAR_CENTER_X},${RADAR_CENTER_Y}`).join(' ') }}
@@ -63,12 +57,14 @@ function RadarPlot({ data }: { data: ChartRadarResponse }) {
         y={RADAR_CENTER_Y - REFERENCE_RADIUS}
         width={REFERENCE_RADIUS * 2}
         height={REFERENCE_RADIUS * 2}
-        className="invert opacity-65"
+        className="invert opacity-85"
       />
       {radarAxes.map((axis, i) => {
-        const { x, y, anchor } = LABEL_POSITIONS[i];
+        const angle = (-90 + i * 60) * Math.PI / 180;
+        const x = RADAR_CENTER_X + Math.cos(angle) * REFERENCE_RADIUS;
+        const y = RADAR_CENTER_Y + Math.sin(angle) * REFERENCE_RADIUS;
         return (
-          <g key={axis.key} textAnchor={anchor} fill="currentColor">
+          <g key={axis.key} textAnchor="middle" fill="currentColor" stroke="rgb(0 0 0 / 55%)" strokeWidth="2" paintOrder="stroke" strokeLinejoin="round">
             <text x={x} y={y - 2} fontSize="15" fontWeight="600">{axis.label}</text>
             <text x={x} y={y + 14} fontSize="14" className="tabular-nums">{values[i]?.toFixed(0) ?? '—'}</text>
           </g>
@@ -104,7 +100,7 @@ export default function ChartRadar({ id, hash, chartLevel }: ChartRadarProps) {
           </button>}
         </div>
       ) : data ? (
-        <div className="rounded-xl overflow-hidden">
+        <div className="rounded-xl">
           <RadarPlot data={data} />
         </div>
       ) : null}
