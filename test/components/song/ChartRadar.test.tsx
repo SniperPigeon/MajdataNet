@@ -27,19 +27,19 @@ vi.mock('@/components', async () => ({
 const featureOrder = ['note', 'peak', 'sweep', 'slide_tricky', 'slide_sequence', 'jack', 'fitted_constant'];
 const radar = (esti = 14.2) => ({ featureOrder, feature: { jack: 75, note: 120, fitted_constant: esti, peak: 135, sweep: 80, slide_sequence: 110, slide_tricky: 160 } });
 const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
-const summary = { id: 'song', hash: 'hash', title: 'Song', artist: '', designer: '', uploader: 'user', levels: ['', '', '', '12+', '14', '14+', ''], tags: [], publicTags: [], timestamp: '2026-10-04' };
+const summary = { id: 'song', hash: 'hash', title: 'Song', artist: '', designer: '', uploader: 'user', levels: ['', '', '', '12+', '14', '14+', '15'], tags: [], publicTags: [], timestamp: '2026-10-04' };
 
 describe('default radar difficulty', () => {
   it.each([
-    [['', '', '', '12+', '14', '14+', '15'], 4],
-    [['', '', '', '12+', '', '14+', '15'], 5],
-    [['', '', '', '12+', '', '', '15'], 6],
+    [['', '', '', '12+', '14', '14+', '15'], 6],
+    [['', '', '', '12+', '14', '14+', ''], 5],
+    [['', '', '', '12+', '14', '', ''], 4],
     [[null, null, null, '12+', '  ', null, null], 3],
     [['2', '5', '8', '', '', '', ''], 2],
     [[null, '5', '', '', '', '', ''], 1],
     [['2', '', '', '', '', '', ''], 0],
     [[null, '', '  ', '', '', '', ''], undefined],
-  ])('picks the first available preferred difficulty', (levels, expected) => {
+  ])('picks the last non-empty difficulty', (levels, expected) => {
     expect(getDefaultChartLevel(levels as (string | null)[])).toBe(expected);
   });
 });
@@ -75,14 +75,14 @@ describe('radar on the song page', () => {
   function difficulty(level: number) { return container.querySelector<HTMLElement>(`[id="lv${level}"]`)!; }
   function radarRequests() { return fetchMock.mock.calls.filter(([url]) => String(url).includes('/radar?')); }
 
-  it('defaults to Master and follows existing difficulty clicks without loading Unity', async () => {
+  it('defaults to the last non-empty difficulty and follows existing clicks without loading Unity', async () => {
     fetchMock.mockImplementation(async url => String(url).endsWith('/summary') ? response(summary) : response(radar(String(url).endsWith('=5') ? 14.83 : 14.2)));
     await render();
-    expect(container.querySelector('[data-radar-level]')?.getAttribute('data-radar-level')).toBe('4');
+    expect(container.querySelector('[data-radar-level]')?.getAttribute('data-radar-level')).toBe('6');
     expect(container.querySelector('aside section svg')?.textContent).toContain('Umiyuri');
     expect(container.querySelector('aside section svg')?.textContent).toContain('esti');
     expect(container.querySelector('aside')?.textContent).not.toMatch(/主要特征|刻度|SLIDE/);
-    expect(radarRequests()[0][0]).toBe('/api3/api/maichart/song/radar?chartLevel=4');
+    expect(radarRequests()[0][0]).toBe('/api3/api/maichart/song/radar?chartLevel=6');
 
     await act(async () => difficulty(5).querySelector('sup')!.click());
     expect(container.querySelector('aside section svg')?.textContent).toContain('14.83');
@@ -102,8 +102,8 @@ describe('radar on the song page', () => {
     await act(async () => difficulty(5).click());
     expect(radarRequests().at(-1)?.[0]).toBe('/api3/api/maichart/song/radar?chartLevel=5');
     await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent === 'Next song')!.click());
-    expect(radarRequests().at(-1)?.[0]).toBe('/api3/api/maichart/other/radar?chartLevel=4');
-    expect(container.querySelector('[data-radar-level]')?.getAttribute('data-radar-level')).toBe('4');
+    expect(radarRequests().at(-1)?.[0]).toBe('/api3/api/maichart/other/radar?chartLevel=6');
+    expect(container.querySelector('[data-radar-level]')?.getAttribute('data-radar-level')).toBe('6');
   });
 
   it('observes nested clicks while preserving exactly one original playback message per click', async () => {
@@ -124,15 +124,15 @@ describe('radar on the song page', () => {
   });
 
   it('never shows a late response for the previously selected difficulty', async () => {
-    let finishMaster!: (response: Response) => void;
+    let finishDefault!: (response: Response) => void;
     fetchMock.mockImplementation(async url => {
       if (String(url).endsWith('/summary')) return response(summary);
-      if (String(url).endsWith('=4')) return new Promise(resolve => { finishMaster = resolve; });
+      if (String(url).endsWith('=6')) return new Promise(resolve => { finishDefault = resolve; });
       return response(radar(14.83));
     });
     await render();
     await act(async () => difficulty(5).click());
-    await act(async () => finishMaster(response(radar(14.2))));
+    await act(async () => finishDefault(response(radar(14.2))));
     expect(container.querySelector('aside section svg')?.textContent).toContain('14.83');
     expect(container.querySelector('aside section svg')?.textContent).not.toContain('14.20');
     expect(container.querySelector('[data-radar-level]')?.getAttribute('data-radar-level')).toBe('5');
@@ -142,7 +142,7 @@ describe('radar on the song page', () => {
     fetchMock.mockImplementation(async url => String(url).endsWith('/summary') ? response(summary) : response({}, status));
     await render();
     expect(container.querySelector('aside [role="alert"]')).not.toBeNull();
-    expect(container.querySelector('[data-radar-level]')?.getAttribute('data-radar-level')).toBe('4');
+    expect(container.querySelector('[data-radar-level]')?.getAttribute('data-radar-level')).toBe('6');
     expect(radarRequests()).toHaveLength(1);
     fetchMock.mockResolvedValue(response(radar()));
     await act(async () => container.querySelector<HTMLButtonElement>('aside section button')!.click());
