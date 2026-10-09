@@ -79,8 +79,8 @@ describe('radar on the song page', () => {
     fetchMock.mockImplementation(async url => String(url).endsWith('/summary') ? response(summary) : response(radar(String(url).endsWith('=5') ? 14.83 : 14.2)));
     await render();
     expect(container.querySelector('[data-radar-level]')?.getAttribute('data-radar-level')).toBe('6');
-    expect(container.querySelector('aside section svg')?.textContent).toContain('Umiyuri');
-    expect(container.querySelector('aside section svg')?.textContent).toContain('esti');
+    expect(container.querySelector('aside section svg')?.textContent).toContain('错位');
+    expect(container.querySelector('aside section svg')?.textContent).toContain('拟合定数');
     expect(container.querySelector('aside')?.textContent).not.toMatch(/主要特征|刻度|SLIDE/);
     expect(radarRequests()[0][0]).toBe('/api3/api/maichart/song/radar?chartLevel=6');
 
@@ -175,17 +175,17 @@ describe('radar on the song page', () => {
       const [x, y] = points[i];
       expect(Math.hypot(x - centerX, y - centerY) / referenceRadius).toBeCloseTo(expectedRadius);
     }
-    expect(container.querySelector('svg')?.getAttribute('aria-label')).toContain('esti: 14.20');
+    expect(container.querySelector('svg')?.getAttribute('aria-label')).toContain('拟合定数: 14.20');
     expect(container.querySelector('svg')?.textContent).toContain('250');
-    expect(container.querySelector('svg')?.getAttribute('aria-label')).toContain('Slide: 250');
+    expect(container.querySelector('svg')?.getAttribute('aria-label')).toContain('星星阵: 250');
   });
 
   it('shows missing values as unavailable instead of drawing a zero-score polygon', async () => {
     fetchMock.mockResolvedValue(response({ ...radar(), feature: { ...radar().feature, note: null, fitted_constant: null } }));
     await render(<ChartRadar id="song" hash="hash" chartLevel={4} />);
     expect(container.querySelector('svg polygon')).toBeNull();
-    expect(container.querySelector('svg')?.getAttribute('aria-label')).toContain('Note: —');
-    expect(container.querySelector('svg')?.getAttribute('aria-label')).toContain('esti: —');
+    expect(container.querySelector('svg')?.getAttribute('aria-label')).toContain('物量: —');
+    expect(container.querySelector('svg')?.getAttribute('aria-label')).toContain('拟合定数: —');
   });
 
   it('rejects malformed JSON payloads without drawing NaN values', async () => {
