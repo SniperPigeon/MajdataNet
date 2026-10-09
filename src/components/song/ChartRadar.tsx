@@ -21,6 +21,7 @@ const REFERENCE_SCORE = 100;
 const MAX_RENDERED_SCORE = 200;
 
 function RadarPlot({ data }: { data: ChartRadarResponse }) {
+  const { i18n } = useI18n();
   const reduceMotion = useReducedMotion();
   // Access by key: JSON dictionary iteration order is not the visual axis order.
   const values = radarAxes.map(axis => data.feature[axis.key]);
@@ -33,13 +34,15 @@ function RadarPlot({ data }: { data: ChartRadarResponse }) {
     return `${RADAR_CENTER_X + Math.cos(angle) * radius},${RADAR_CENTER_Y + Math.sin(angle) * radius}`;
   }).join(' ');
   const esti = data.feature.fitted_constant;
+  const labels = radarAxes.map(axis => i18n(axis.i18nKey, axis.label));
+  const estiLabel = i18n('song/ChartRadar.FittedConstant', '拟合定数');
 
   return (
     <svg
       viewBox="0 0 320 360"
       className="block w-full overflow-visible text-white/90"
       role="img"
-      aria-label={`${radarAxes.map((axis, i) => `${axis.label}: ${values[i] ?? '—'}`).join(', ')}; esti: ${esti?.toFixed(2) ?? '—'}`}
+      aria-label={`${labels.map((label, i) => `${label}: ${values[i] ?? '—'}`).join(', ')}; ${estiLabel}: ${esti?.toFixed(2) ?? '—'}`}
     >
       {complete && (
         <motion.polygon
@@ -65,7 +68,7 @@ function RadarPlot({ data }: { data: ChartRadarResponse }) {
         const y = RADAR_CENTER_Y + Math.sin(angle) * REFERENCE_RADIUS;
         return (
           <g key={axis.key} textAnchor="middle" fill="currentColor" stroke="rgb(0 0 0 / 55%)" strokeWidth="2" paintOrder="stroke" strokeLinejoin="round">
-            <text x={x} y={y - 2} fontSize="15" fontWeight="600">{axis.label}</text>
+            <text x={x} y={y - 2} fontSize="15" fontWeight="600">{labels[i]}</text>
             <text x={x} y={y + 14} fontSize="14" className="tabular-nums">{values[i]?.toFixed(0) ?? '—'}</text>
           </g>
         );
@@ -73,7 +76,7 @@ function RadarPlot({ data }: { data: ChartRadarResponse }) {
       <text x={RADAR_CENTER_X} y={RADAR_CENTER_Y + 4} textAnchor="middle" fontSize="26" fontWeight="600" fill="currentColor" stroke="rgb(0 0 0 / 35%)" strokeWidth="3" paintOrder="stroke" className="tabular-nums">
         {esti?.toFixed(2) ?? '—'}
       </text>
-      <text x={RADAR_CENTER_X} y={RADAR_CENTER_Y + 24} textAnchor="middle" fontSize="13" fill="currentColor">esti</text>
+      <text x={RADAR_CENTER_X} y={RADAR_CENTER_Y + 24} textAnchor="middle" fontSize="13" fill="currentColor">{estiLabel}</text>
     </svg>
   );
 }

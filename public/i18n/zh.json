@@ -549,6 +549,13 @@
     "AnalysisFailed": "该难度暂时无法分析",
     "LoadFailed": "雷达加载失败",
     "Loading": "正在分析谱面…",
-    "Retry": "重试"
+    "Retry": "重试",
+    "AxisNote": "物量",
+    "AxisPeak": "爆发",
+    "AxisSweep": "扫键",
+    "AxisSlideTricky": "错位",
+    "AxisSlideSequence": "星星阵",
+    "AxisJack": "纵连",
+    "FittedConstant": "拟合定数"
   }
 }

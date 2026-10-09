@@ -549,6 +549,13 @@
     "AnalysisFailed": "This difficulty could not be analyzed",
     "LoadFailed": "Could not load radar",
     "Loading": "Analyzing chart…",
-    "Retry": "Retry"
+    "Retry": "Retry",
+    "AxisNote": "Note",
+    "AxisPeak": "Peak",
+    "AxisSweep": "Swipe",
+    "AxisSlideTricky": "Umiyuri",
+    "AxisSlideSequence": "Slide",
+    "AxisJack": "Jack",
+    "FittedConstant": "esti"
   }
 }

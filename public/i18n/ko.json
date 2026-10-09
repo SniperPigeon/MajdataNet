@@ -549,6 +549,13 @@
     "AnalysisFailed": "이 난이도를 분석할 수 없습니다",
     "LoadFailed": "레이더를 불러오지 못했습니다",
     "Loading": "채보 분석 중…",
-    "Retry": "다시 시도"
+    "Retry": "다시 시도",
+    "AxisNote": "물량",
+    "AxisPeak": "폭타",
+    "AxisSweep": "회전",
+    "AxisSlideTricky": "우미유리",
+    "AxisSlideSequence": "슬라이드",
+    "AxisJack": "연타",
+    "FittedConstant": "추정 상수"
   }
 }
