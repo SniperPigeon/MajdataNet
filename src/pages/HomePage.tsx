@@ -14,6 +14,7 @@ import { useI18n, useUserContext } from '@/hooks';
 import { useEventClock } from '@/hooks/useEventClock';
 import { PageLayout, SongCard, SongList, LoadingSpinner } from '@/components';
 import { endpoints } from '@/config/api';
+import { ImpressionScope } from '@/contexts/ImpressionContext';
 import { ApiError, apiFetcher } from '@/utils/apiClient';
 import {
   getEventStatusClass,
@@ -784,7 +785,8 @@ function RecommendFeed({ userKey, page, onPageChange }: {
 
   return (
     <>
-      {content}
+      {/* 作用域跨翻页保留，同一会话内已上报的谱面不再重复计时 */}
+      <ImpressionScope source="feed">{content}</ImpressionScope>
 
       <div className="flex flex-col items-center gap-5 sm:gap-6 mx-auto mt-8 sm:mt-12 px-0 sm:px-4 max-w-7xl">
         <Pager page={page} hasNext={hasNext} onPageChange={onPageChange} />
