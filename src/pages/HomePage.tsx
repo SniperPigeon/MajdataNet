@@ -10,10 +10,11 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
 import 'swiper/swiper-bundle.css';
 
-import { useI18n } from '@/hooks';
+import { useI18n, useUserContext } from '@/hooks';
 import { useEventClock } from '@/hooks/useEventClock';
 import { PageLayout, SongCard, SongList, LoadingSpinner } from '@/components';
 import { endpoints } from '@/config/api';
+import { ApiError, apiFetcher } from '@/utils/apiClient';
 import {
   getEventStatusClass,
   getEventStatusText,
@@ -480,11 +481,34 @@ function SearchBar({ onChange, initS, sortType, onSortChange }: SearchBarProps) 
   );
 }
 
+const RECOMMEND_PAGE_SIZE = 30;
+const RECOMMEND_MAX_PAGE = 100; // 与后端 feed 的 page 上限一致
+
+const clampRecommendPage = (page: number) =>
+  Number.isInteger(page) ? Math.min(Math.max(page, 0), RECOMMEND_MAX_PAGE) : 0;
+
+type HomeTab = 'all' | 'recommend';
+
 function MainComp() {
   const { i18n } = useI18n();
-  const [searchParams] = useSearchParams();
+  const { user } = useUserContext();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isInitialMount = useRef(true);
-  const [activeTab, setActiveTab] = useState<'all' | 'random'>('all');
+  // tab 和推荐页码放在 URL 里，从谱面页返回时能回到原位置；默认仍是全部谱面
+  const activeTab: HomeTab = searchParams.get('tab') === 'recommend' ? 'recommend' : 'all';
+  const recommendPage = clampRecommendPage(Number(searchParams.get('rpage') ?? 0));
+  const urlSearchParam = searchParams.get('search');
+
+  const navigateHome = useCallback((tab: HomeTab, rpage = 0) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (tab === 'recommend') next.set('tab', tab);
+      else next.delete('tab');
+      if (tab === 'recommend' && rpage > 0) next.set('rpage', rpage.toString());
+      else next.delete('rpage');
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   // 从 localStorage 或 URL 参数初始化状态
   const [Search, setSearch] = useState(() => {
@@ -507,20 +531,19 @@ function MainComp() {
   });
   const [randomSeed, setRandomSeed] = useState(() => Math.floor(Math.random() * 1000000));
 
-  // 处理 URL 参数变化（跳过初始挂载）
+  // 处理 URL 搜索参数变化（跳过初始挂载）；只依赖 search，切换 tab 不会覆盖已输入的搜索
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
 
-    const urlSearchParam = searchParams.get('search');
     if (urlSearchParam) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearch(urlSearchParam);
       localStorage.setItem('search', urlSearchParam);
     }
-  }, [searchParams]);
+  }, [urlSearchParam]);
 
   const debounced = useDebouncedCallback(
     // function
@@ -556,16 +579,18 @@ function MainComp() {
           <button
             className={`px-4 md:px-5 py-2 rounded-full text-sm md:text-base transition-colors cursor-pointer ${activeTab === 'all' ? 'bg-blue-500/80 text-white' : 'text-white/80 hover:text-white'
               }`}
-            onClick={() => setActiveTab('all')}
+            onClick={() => navigateHome('all')}
           >
             {i18n("home/HomePage.AllCharts", '全部谱面')}
           </button>
           <button
-            className={`px-4 md:px-5 py-2 rounded-full text-sm md:text-base transition-colors cursor-pointer ${activeTab === 'random' ? 'bg-blue-500/80 text-white' : 'text-white/80 hover:text-white'
+            className={`px-4 md:px-5 py-2 rounded-full text-sm md:text-base transition-colors cursor-pointer ${activeTab === 'recommend' ? 'bg-blue-500/80 text-white' : 'text-white/80 hover:text-white'
               }`}
-            onClick={() => setActiveTab('random')}
+            onClick={() => navigateHome('recommend', recommendPage)}
           >
-            {i18n("home/HomePage.RandomRecommend", '随机推荐')}
+            {user
+              ? i18n("home/HomePage.PersonalRecommend", '个人推荐')
+              : i18n("home/HomePage.RandomRecommend", '随机推荐')}
           </button>
         </div>
       </div>
@@ -591,22 +616,12 @@ function MainComp() {
           </div>
         </>
       ) : (
-        <>
-          <div className="flex flex-col items-center gap-4 mx-auto mb-6 px-4 max-w-7xl">
-            <button
-              className="bg-blue-500/80 hover:bg-blue-500 px-6 py-2 border-none rounded-lg font-medium text-white cursor-pointer"
-              onClick={refreshRandomBatch}
-            >
-              {i18n("home/HomePage.RefreshBatch", '换一批')}
-            </button>
-          </div>
-
-          <RandomRecommendList refreshKey={randomSeed} />
-
-          <div className="flex justify-center mt-12 px-4">
-            <IntegratedDownloadTypeSelector isMobile={true} />
-          </div>
-        </>
+        <RecommendTab
+          page={recommendPage}
+          onPageChange={(target) => navigateHome('recommend', clampRecommendPage(target))}
+          randomSeed={randomSeed}
+          onRefreshRandom={refreshRandomBatch}
+        />
       )}
     </>
   );
@@ -667,6 +682,114 @@ function Pager({ page, hasNext, onPageChange }: {
       >
         {i18n("home/HomePage.FrontPage", '首页')}
       </button>
+    </>
+  );
+}
+
+// 登录用户看个人推荐；未登录或会话失效时回落到随机推荐
+function RecommendTab({ page, onPageChange, randomSeed, onRefreshRandom }: {
+  page: number;
+  onPageChange: (page: number) => void;
+  randomSeed: number;
+  onRefreshRandom: () => void;
+}) {
+  const { i18n } = useI18n();
+  const { user, isLoading } = useUserContext();
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-20 w-full">
+        <LoadingSpinner size="50px" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return <RecommendFeed userKey={user.id ?? user.username} page={page} onPageChange={onPageChange} />;
+  }
+
+  return (
+    <>
+      <div className="flex flex-col items-center gap-4 mx-auto mb-6 px-4 max-w-7xl">
+        <Link to="/login" className="text-white/70 hover:text-white text-sm hover:underline underline-offset-4">
+          {i18n("home/HomePage.LoginForRecommend", '登录后即可获得个人推荐')}
+        </Link>
+        <button
+          className="bg-blue-500/80 hover:bg-blue-500 px-6 py-2 border-none rounded-lg font-medium text-white cursor-pointer"
+          onClick={onRefreshRandom}
+        >
+          {i18n("home/HomePage.RefreshBatch", '换一批')}
+        </button>
+      </div>
+
+      <RandomRecommendList refreshKey={randomSeed} />
+
+      <div className="flex justify-center mt-12 px-4">
+        <IntegratedDownloadTypeSelector isMobile={true} />
+      </div>
+    </>
+  );
+}
+
+// 后端按用户快照分页，有效期内翻页顺序稳定；返回不足一页即为最后一页
+function RecommendFeed({ userKey, page, onPageChange }: {
+  userKey: string;
+  page: number;
+  onPageChange: (page: number) => void;
+}) {
+  const { i18n } = useI18n();
+  const { refetch } = useUserContext();
+
+  // key 带上用户，切换账号时不会复用上一个人的推荐
+  const { data, error, isLoading } = useSWR<Song[], Error, [string, string]>(
+    [endpoints.recommend.feed(page, RECOMMEND_PAGE_SIZE), userKey],
+    ([url]) => apiFetcher<Song[]>(url),
+    {
+      revalidateOnFocus: false,
+      onError: (err) => {
+        // 会话过期：刷新登录状态，页面随之回落到随机推荐
+        if (err instanceof ApiError && err.status === 401) refetch();
+      },
+    }
+  );
+
+  const hasNext = page < RECOMMEND_MAX_PAGE && data?.length === RECOMMEND_PAGE_SIZE;
+
+  let content: React.ReactNode;
+  if (error) {
+    content = <div className="m-auto w-full text-2xl sm:text-[50px] text-center">{i18n("home/HomePage.ServerError", '服务器错误')}</div>;
+  } else if (isLoading || !data) {
+    content = (
+      <div className="flex justify-center items-center py-20 w-full">
+        <LoadingSpinner size="50px" />
+      </div>
+    );
+  } else if (data.length === 0) {
+    content = (
+      <div className="m-auto w-full text-2xl sm:text-[50px] text-center">
+        {page > 0
+          ? i18n("home/HomePage.RecommendEnd", '没有更多推荐了')
+          : i18n("home/HomePage.EmptyData", '暂无数据')}
+      </div>
+    );
+  } else {
+    content = (
+      <div className="justify-center gap-3 sm:gap-[0.6rem] grid grid-cols-[minmax(0,20.6rem)] sm:grid-cols-[repeat(auto-fit,minmax(20rem,20.6rem))] mx-auto p-0 sm:p-2 w-full max-w-350 min-w-0">
+        {data.map((song, index) => (
+          <SongCard key={song.id} song={song} index={index} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {content}
+
+      <div className="flex flex-col items-center gap-5 sm:gap-6 mx-auto mt-8 sm:mt-12 px-0 sm:px-4 max-w-7xl">
+        <Pager page={page} hasNext={hasNext} onPageChange={onPageChange} />
+        <IntegratedDownloadTypeSelector isMobile={true} />
+      </div>
     </>
   );
 }
