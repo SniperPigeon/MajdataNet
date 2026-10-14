@@ -5,7 +5,8 @@
 
 export const IMPRESSION_VISIBLE_RATIO = 0.5;
 export const IMPRESSION_DWELL_MS = 1000;
-export const IMPRESSION_FLUSH_DELAY_MS = 2000;
+// 尽快落库：转化只归因到已记录的曝光，看到后马上点下载也能算上
+export const IMPRESSION_FLUSH_DELAY_MS = 1000;
 // 攒够即发；远低于后端单次 100 个的上限
 export const IMPRESSION_FLUSH_SIZE = 20;
 

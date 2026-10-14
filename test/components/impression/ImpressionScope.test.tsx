@@ -66,7 +66,7 @@ describe('impression scope', () => {
     await act(async () => {
       observer.show(cardFor('a'));
       observer.show(cardFor('b'));
-      vi.advanceTimersByTime(1000 + 2000);
+      vi.advanceTimersByTime(1000 + 1000);
     });
 
     expect(fetcher).toHaveBeenCalledExactlyOnceWith('/api3/api/recommend/impressions', expect.objectContaining({
@@ -112,7 +112,7 @@ describe('impression scope', () => {
 
     await act(async () => {
       FakeObserver.instances.at(-1)!.show(cardFor('a'));
-      vi.advanceTimersByTime(1000 + 2000);
+      vi.advanceTimersByTime(1000 + 1000);
     });
     expect(fetcher).toHaveBeenCalledOnce();
   });

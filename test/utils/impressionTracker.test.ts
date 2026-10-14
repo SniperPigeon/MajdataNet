@@ -46,7 +46,7 @@ afterEach(() => {
 });
 
 describe('impression tracker', () => {
-  it('reports a card that stays at least half visible for one second, batched after the flush delay', () => {
+  it('reports a card that stays at least half visible for one second, sent one second later', () => {
     const element = card();
     tracker.observe(element, 'h1');
     tracker.connect();
@@ -58,7 +58,9 @@ describe('impression tracker', () => {
 
     vi.advanceTimersByTime(1);
     expect(send).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(2000);
+    vi.advanceTimersByTime(999);
+    expect(send).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     expect(send).toHaveBeenCalledExactlyOnceWith(['h1']);
     expect(latestObserver().observed.has(element)).toBe(false);
   });
@@ -90,7 +92,7 @@ describe('impression tracker', () => {
     expect(send).not.toHaveBeenCalled();
 
     setVisibility('visible');
-    vi.advanceTimersByTime(1000 + 2000);
+    vi.advanceTimersByTime(1000 + 1000);
     expect(send).toHaveBeenCalledExactlyOnceWith(['h1']);
   });
 
@@ -172,7 +174,7 @@ describe('impression tracker', () => {
     tracker.connect();
     expect(latestObserver().observed).toEqual(new Set([later]));
     latestObserver().show(later, 1);
-    vi.advanceTimersByTime(1000 + 2000);
+    vi.advanceTimersByTime(1000 + 1000);
     expect(send).toHaveBeenCalledExactlyOnceWith(['h2']);
   });
 
